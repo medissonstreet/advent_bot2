@@ -132,18 +132,19 @@ def get_current_advent_day():
     now_moscow = get_moscow_time()
     today = now_moscow.date()
     
-    # Добавим логирование
-    print(f"🔍 ДЕБАГ: сегодня {today}, ADVENT_START={ADVENT_START}, ADVENT_END={ADVENT_END}")
+    print(f"🔴 ВЫЧИСЛЕНИЕ: сегодня {today}, день месяца: {today.day}")
     
+    # Если сегодня не в периоде адвента
     if today < ADVENT_START:
-        print(f"🔍 ДЕБАГ: сегодня раньше начала адвента, возвращаю None")
+        print(f"🔴 ВЫЧИСЛЕНИЕ: сегодня ({today}) раньше ADVENT_START ({ADVENT_START})")
         return None
     if today > ADVENT_END:
-        print(f"🔍 ДЕБАГ: сегодня позже конца адвента, возвращаю None")
+        print(f"🔴 ВЫЧИСЛЕНИЕ: сегодня ({today}) позже ADVENT_END ({ADVENT_END})")
         return None
     
-    current_day = (today - ADVENT_START).days + 1
-    print(f"🔍 ДЕБАГ: текущий день адвента: {current_day}")
+    # Возвращаем РЕАЛЬНОЕ число декабря (17, 18, 19...)
+    current_day = today.day
+    print(f"🔴 ВЫЧИСЛЕНИЕ: возвращаем реальный день декабря: {current_day}")
     return current_day
 
 def is_reward_opened_today(user_id):
@@ -482,6 +483,7 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
 
 
