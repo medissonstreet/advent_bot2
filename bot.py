@@ -203,6 +203,75 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await back_to_main_menu(query)
     elif query.data == 'activate_menu':
         await ask_reward_number(query)
+    elif query.data == 'get_missed':  # ← ДОБАВЬТЕ ЭТО
+        await get_missed_rewards(query)
+
+async def get_missed_rewards(query):
+    """Выдаем все пропущенные награды"""
+    user_id = query.from_user.id
+    now_moscow = get_moscow_time()
+    
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Находим все пропущенные дни
+    current_day = get_current_advent_day()
+    if not current_day:
+        await query.edit_message_text("Сейчас не время адвента!")
+        return
+    
+    cursor.execute('''
+        SELECT r.day, r.reward_text, r.reward_name
+        FROM rewards r
+        WHERE r.day BETWEEN 17 AND ?
+        AND r.day NOT IN (
+            SELECT day FROM user_rewards 
+            WHERE user_id = ? AND opened = 1
+        )
+        ORDER BY r.day
+    ''', (current_day, user_id))
+    
+    missed_rewards = cursor.fetchall()
+    
+    if not missed_rewards:
+        await query.edit_message_text("🎉 У тебя нет пропущенных наград! Все получены!")
+        conn.close()
+        return
+    
+    # Выдаем все пропущенные награды
+    rewards_given = []
+    for reward in missed_rewards:
+        day, reward_text, reward_name = reward
+        
+        # Записываем в БД
+        cursor.execute('''
+            INSERT INTO user_rewards (user_id, day, opened, open_date)
+            VALUES (?, ?, 1, ?)
+        ''', (user_id, day, now_moscow))
+        
+        rewards_given.append(f"{day} декабря: {reward_name}")
+    
+    conn.commit()
+    conn.close()
+    
+    # Формируем сообщение
+    if len(rewards_given) == 1:
+        text = f"🎉 Выдана пропущенная награда:\n{rewards_given[0]}"
+    else:
+        text = f"🎉 Выданы {len(rewards_given)} пропущенные награды:\n"
+        text += "\n".join(f"• {r}" for r in rewards_given)
+    
+    text += "\n\nТеперь они отображаются в разделе 'Мои открытые награды'!"
+    
+    keyboard = [
+        [InlineKeyboardButton("📋 Мои награды", callback_data='my_rewards')],
+        [InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]
+    ]
+    
+    await query.edit_message_text(
+        text=text,
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
 
 async def open_today_reward(query):
     user_id = query.from_user.id
@@ -291,7 +360,7 @@ async def show_my_rewards(query):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Берем только открытые награды (как вы просили)
+    # Берем только открытые награды
     cursor.execute('''
         SELECT r.day, r.reward_name, ur.activated
         FROM user_rewards ur
@@ -301,24 +370,57 @@ async def show_my_rewards(query):
     ''', (user_id,))
     
     rewards = cursor.fetchall()
+    
+    # Проверяем, есть ли пропущенные дни
+    current_day = get_current_advent_day()
+    missed_days = []
+    if current_day:
+        # Получаем все дни адвента от 17 до current_day
+        cursor.execute('''
+            SELECT day FROM rewards 
+            WHERE day BETWEEN 17 AND ?
+            AND day NOT IN (
+                SELECT day FROM user_rewards 
+                WHERE user_id = ? AND opened = 1
+            )
+            ORDER BY day
+        ''', (current_day, user_id))
+        missed_days = [row[0] for row in cursor.fetchall()]
+    
     conn.close()
     
+    # Формируем текст
     if not rewards:
-        text = "📭 У тебя пока нет открытых наград.\nОткрывай награды каждый день с помощью кнопки «Открыть сегодняшнюю награду»!"
+        text = "📭 У тебя пока нет открытых наград."
     else:
         text = "📋 Твои открытые награды:\n\n"
         for reward in rewards:
-            if reward['activated']:
-                text += f"✅ {reward['day']} декабря: {reward['reward_name']} (АКТИВИРОВАНА)\n"
+            day = reward[0]  # Теперь используем индексы, а не имена
+            name = reward[1]
+            activated = reward[2]
+            
+            if activated:
+                text += f"✅ {day} декабря: {name}\n"
             else:
-                text += f"🎁 {reward['day']} декабря: {reward['reward_name']}\n"
-        
-        text += "\nЧтобы активировать награду, нажми кнопку ниже и введи номер дня (например: 17)"
+                text += f"🎁 {day} декабря: {name}\n"
     
-    # Кнопки
+    # Добавляем информацию о пропущенных днях
+    if missed_days:
+        text += f"\n⏰ Пропущено дней: {len(missed_days)} ({', '.join(map(str, missed_days))} декабря)"
+    
+    # Формируем кнопки
     keyboard = []
-    if rewards:
+    
+    # 1. Кнопка активации награды (если есть неактивированные)
+    cursor.execute('SELECT 1 FROM user_rewards WHERE user_id = ? AND opened = 1 AND activated = 0 LIMIT 1', (user_id,))
+    if cursor.fetchone():
         keyboard.append([InlineKeyboardButton("🔢 Активировать награду", callback_data='activate_menu')])
+    
+    # 2. Кнопка получения пропущенных наград (если есть пропущенные дни)
+    if missed_days:
+        keyboard.append([InlineKeyboardButton("🎁 Получить пропущенные награды", callback_data='get_missed')])
+    
+    # 3. Кнопка назад
     keyboard.append([InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')])
     
     await query.edit_message_text(
@@ -483,6 +585,7 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
 
 
