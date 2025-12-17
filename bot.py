@@ -89,23 +89,23 @@ def init_db():
     
     print("🔴 ПРОВЕРКА БАЗЫ ДАННЫХ НАЧАЛАСЬ:")
     
-    # 1. Проверяем сколько записей в таблице rewards
-    cursor.execute('SELECT COUNT(*) as count FROM rewards')
+    # 1. Проверяем сколько записей в таблице rewards (используем индекс 0)
+    cursor.execute('SELECT COUNT(*) FROM rewards')
     result = cursor.fetchone()
-    print(f"🔴 В таблице rewards записей: {result['count']}")
+    print(f"🔴 В таблице rewards записей: {result[0]}")
     
-    # 2. Выводим ВСЕ награды из базы
+    # 2. Выводим ВСЕ награды из базы (используем индексы 0 и 1)
     cursor.execute('SELECT day, reward_name FROM rewards ORDER BY day')
     all_rewards = cursor.fetchall()
     print("🔴 Полный список наград в базе:")
     for r in all_rewards:
-        print(f"  День {r['day']}: {r['reward_name']}")
+        print(f"  День {r[0]}: {r[1]}")
     
     # 3. Проверяем, есть ли награда для дня 2 (текущего дня)
-    cursor.execute('SELECT * FROM rewards WHERE day = 2')
+    cursor.execute('SELECT day, reward_name FROM rewards WHERE day = 2')
     day2_reward = cursor.fetchone()
     if day2_reward:
-        print(f"🔴 Награда для дня 2 НАЙДЕНА: {day2_reward['reward_name']}")
+        print(f"🔴 Награда для дня 2 НАЙДЕНА: {day2_reward[1]}")
     else:
         print("🔴 КРИТИЧЕСКАЯ ОШИБКА: Награда для дня 2 НЕ НАЙДЕНА в базе!")
         print("🔴 Это значит, что таблица rewards заполнена только днями 17-31, а не 1-31")
@@ -482,6 +482,7 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
 
 
