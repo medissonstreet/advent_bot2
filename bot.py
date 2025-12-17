@@ -103,22 +103,16 @@ def get_moscow_time():
     return datetime.utcnow() + timedelta(hours=MOSCOW_TZ_OFFSET)
 
 def get_current_advent_day():
-    """ВЕРСИЯ ДЛЯ ТЕСТА: Всегда возвращает 17 декабря"""
-    # Закомментируйте старую логику, добавив решетки (#)
-    # now_moscow = get_moscow_time()
-    # today = now_moscow.date()
-    #
-    # if today < ADVENT_START:
-    #     return None
-    # if today > ADVENT_END:
-    #     return None
-    #
-    # return (today - ADVENT_START).days + 1
-
-    # Новая логика для теста
-    test_day = 17  # Меняйте это число на 18, 19 и т.д., чтобы тестировать разные дни
-    print(f"🔧 ТЕСТ: Функция возвращает день {test_day}")
-    return test_day
+    """Определяем текущий день адвента"""
+    now_moscow = get_moscow_time()
+    today = now_moscow.date()
+    
+    if today < ADVENT_START:
+        return None
+    if today > ADVENT_END:
+        return None
+    
+    return (today - ADVENT_START).days + 1
 
 def is_reward_opened_today(user_id):
     """Проверяем, открывал ли пользователь награду сегодня"""
@@ -429,4 +423,5 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
