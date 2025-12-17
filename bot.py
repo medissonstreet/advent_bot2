@@ -107,17 +107,25 @@ def get_current_advent_day():
     now_moscow = get_moscow_time()
     today = now_moscow.date()
     
+    # Добавим логирование
+    print(f"🔍 ДЕБАГ: сегодня {today}, ADVENT_START={ADVENT_START}, ADVENT_END={ADVENT_END}")
+    
     if today < ADVENT_START:
+        print(f"🔍 ДЕБАГ: сегодня раньше начала адвента, возвращаю None")
         return None
     if today > ADVENT_END:
+        print(f"🔍 ДЕБАГ: сегодня позже конца адвента, возвращаю None")
         return None
     
-    return (today - ADVENT_START).days + 1
+    current_day = (today - ADVENT_START).days + 1
+    print(f"🔍 ДЕБАГ: текущий день адвента: {current_day}")
+    return current_day
 
 def is_reward_opened_today(user_id):
     """Проверяем, открывал ли пользователь награду сегодня"""
     current_day = get_current_advent_day()
     if not current_day:
+        print(f"🔴 ПРОВЕРКА is_reward_opened_today: current_day={current_day}, возвращаем False")
         return False
     
     conn = get_db_connection()
@@ -171,13 +179,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await ask_reward_number(query)
 
 async def open_today_reward(query):
-    """Открываем сегодняшнюю награду"""
     user_id = query.from_user.id
     current_day = get_current_advent_day()
     now_moscow = get_moscow_time()
     
+    # Добавим логирование
+    print(f"🔴 ДИАГНОСТИКА: user_id={user_id}, current_day={current_day}, now={now_moscow}")
+    print(f"🔴 ДИАГНОСТИКА: ADVENT_START={ADVENT_START}, ADVENT_END={ADVENT_END}")
+    
     # Проверяем период адвента
     if current_day is None:
+        print(f"🔍 КНОПКА: current_day is None, выходим")
         if now_moscow.date() < ADVENT_START:
             await query.edit_message_text("🎅 Адвент-календарь еще не начался! Жди 17 декабря 2025 года!")
             return
@@ -186,7 +198,9 @@ async def open_today_reward(query):
             return
     
     # Проверяем, открывал ли уже сегодня
+    print(f"🔴 ДИАГНОСТИКА: проверяем is_reward_opened_today...")
     if is_reward_opened_today(user_id):
+        print(f"🔴 ДИАГНОСТИКА: пользователь УЖЕ открывал награду сегодня")
         next_day = now_moscow.replace(hour=0, minute=0, second=0) + timedelta(days=1)
         time_left = next_day - now_moscow
         hours = time_left.seconds // 3600
@@ -198,6 +212,8 @@ async def open_today_reward(query):
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📋 Мои награды", callback_data='my_rewards')]])
         )
         return
+
+    print(f"🔴 ДИАГНОСТИКА: пользователь еще НЕ открывал награду, продолжаем...")
     
     # Получаем награду за сегодня
     conn = get_db_connection()
@@ -423,5 +439,6 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
 
