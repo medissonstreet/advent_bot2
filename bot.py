@@ -87,6 +87,31 @@ def init_db():
     
     cursor.executemany('INSERT OR IGNORE INTO rewards (day, reward_text, reward_name) VALUES (?, ?, ?)', rewards)
     
+    print("🔴 ПРОВЕРКА БАЗЫ ДАННЫХ НАЧАЛАСЬ:")
+    
+    # 1. Проверяем сколько записей в таблице rewards
+    cursor.execute('SELECT COUNT(*) as count FROM rewards')
+    result = cursor.fetchone()
+    print(f"🔴 В таблице rewards записей: {result['count']}")
+    
+    # 2. Выводим ВСЕ награды из базы
+    cursor.execute('SELECT day, reward_name FROM rewards ORDER BY day')
+    all_rewards = cursor.fetchall()
+    print("🔴 Полный список наград в базе:")
+    for r in all_rewards:
+        print(f"  День {r['day']}: {r['reward_name']}")
+    
+    # 3. Проверяем, есть ли награда для дня 2 (текущего дня)
+    cursor.execute('SELECT * FROM rewards WHERE day = 2')
+    day2_reward = cursor.fetchone()
+    if day2_reward:
+        print(f"🔴 Награда для дня 2 НАЙДЕНА: {day2_reward['reward_name']}")
+    else:
+        print("🔴 КРИТИЧЕСКАЯ ОШИБКА: Награда для дня 2 НЕ НАЙДЕНА в базе!")
+        print("🔴 Это значит, что таблица rewards заполнена только днями 17-31, а не 1-31")
+    print("🔴 ПРОВЕРКА БАЗЫ ДАННЫХ ЗАВЕРШЕНА")
+    # 🔴🔴🔴 КОНЕЦ БЛОКА ДЛЯ ВСТАВКИ 🔴🔴🔴
+    
     conn.commit()
     conn.close()
     print("База данных создана и заполнена!")
@@ -214,18 +239,24 @@ async def open_today_reward(query):
         return
 
     print(f"🔴 ДИАГНОСТИКА: пользователь еще НЕ открывал награду, продолжаем...")
+    print(f"🔴 ДИАГНОСТИКА: ПЕРЕД получением награды из БД")
     
     # Получаем награду за сегодня
     conn = get_db_connection()
     cursor = conn.cursor()
+    print(f"🔴 ДИАГНОСТИКА: Подключились к БД, ищем награду day={current_day}")
     cursor.execute('SELECT reward_text, reward_name FROM rewards WHERE day = ?', (current_day,))
     reward = cursor.fetchone()
+    print(f"🔴 ДИАГНОСТИКА: Результат поиска награды: {reward}")
     
     if reward:
+        print(f"🔴 ДИАГНОСТИКА: Награда НАЙДЕНА: {reward['reward_name']}")
+        
         # Сохраняем, что пользователь открыл награду
         cursor.execute('INSERT INTO user_rewards (user_id, day, opened, open_date) VALUES (?, ?, 1, ?)',
                       (user_id, current_day, now_moscow))
         conn.commit()
+        print(f"🔴 ДИАГНОСТИКА: Запись добавлена в user_rewards")
         
         # Отправляем награду
         keyboard = [
@@ -237,6 +268,18 @@ async def open_today_reward(query):
             text=f"🎉 Ура! Ты открыл(а) награду за {current_day} декабря!\n\n{reward['reward_text']}",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
+    
+    else:
+        # 🔴 ДОБАВЬТЕ ЭТУ СТРОКУ:
+        print(f"🔴 ДИАГНОСТИКА: ОШИБКА! Награда НЕ НАЙДЕНА в таблице rewards для day={current_day}")
+        
+        # Сообщение об ошибке
+        await query.edit_message_text(
+            text=f"❌ Ошибка: награда за {current_day} декабря не найдена в базе данных!",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Назад", callback_data='back_to_main')]])
+        )
+        conn.close()
+        return
     
     conn.close()
 
@@ -439,6 +482,7 @@ def main():
 if __name__ == '__main__':
 
     main()
+
 
 
 
